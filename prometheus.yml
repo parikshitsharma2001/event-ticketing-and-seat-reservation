@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'user-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['user-service:8081']
+        labels:
+          application: 'user-service'
+
+  - job_name: 'seating-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['seating-service:8082']
+        labels:
+          application: 'seating-service'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
