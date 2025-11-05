@@ -211,7 +211,7 @@ services:
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: orderdb
       CATALOG_URL: http://catalog-service:4001
-      RESERVATION_URL: http://seating-service:8082
+      SEATING_URL: http://seating-service:8082
       PAYMENT_URL: http://payment-service:4004
       NOTIFICATION_URL: http://notification-service:4005
       TAX_PERCENT: 5

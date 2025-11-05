@@ -7,7 +7,7 @@ import { Ticket } from '../entities/ticket.entity';
 
 interface CreateOrderData {
   idempotencyKey: string;
-  userPublicId: string;
+  userId: number;
   eventId: number;
   totalCents: number;
   taxCents: number;
@@ -29,7 +29,7 @@ export class OrdersCommandRepository {
   async createOrder(data: CreateOrderData): Promise<Order> {
     const order = this.orderRepo.create({
       idempotencyKey: data.idempotencyKey,
-      userPublicId: data.userPublicId,
+      userId: data.userId,
       eventId: data.eventId,
       totalCents: data.totalCents,
       taxCents: data.taxCents,

@@ -10,7 +10,7 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS orders (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       idempotency_key TEXT UNIQUE,
-      user_public_id UUID,
+      user_id INT,
       event_id INT,
       total_cents INT,
       tax_cents INT,

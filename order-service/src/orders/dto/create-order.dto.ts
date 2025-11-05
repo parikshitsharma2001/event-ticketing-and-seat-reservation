@@ -1,15 +1,14 @@
 import {
   IsArray,
   ArrayNotEmpty,
-  IsUUID,
   IsNumber,
-  IsOptional,
-  IsString,
+  Min,
 } from 'class-validator';
 
 export class CreateOrderDto {
-  @IsUUID('4', { message: 'user_public_id must be a valid UUID' })
-  user_public_id!: string;
+  @IsNumber({}, { message: 'user_id must be a number' })
+  @Min(1, { message: 'user_id must be at least 1' })
+  user_id!: number;
 
   @IsNumber({}, { message: 'event_id must be a number' })
   event_id!: number;

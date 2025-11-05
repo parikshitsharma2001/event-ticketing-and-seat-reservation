@@ -20,51 +20,102 @@ export class OrdersService {
     private readonly commandRepo: OrdersCommandRepository,
   ) { }
 
-  async createOrderFlow(idempotencyKey: string, dto: CreateOrderDto) {
-    const { user_public_id, event_id, seats } = dto as any;
+  async createOrderFlow(idempotencyKey: string, orderRequest: CreateOrderDto) {
+    const { user_id, event_id, seats } = orderRequest as any;
 
-    const exist = await this.queryRepo.findByIdempotency(idempotencyKey);
-    if (exist) return exist;
+    // idempotency
+    const existing = await this.queryRepo.findByIdempotency(idempotencyKey);
+    if (existing) return existing;
 
-    const evtResp = await axios.get(`${CATALOG_URL}/v1/events/${event_id}`);
-    if (!evtResp.data || !evtResp.data.event) throw new Error('invalid event');
+    const toCents = (v: any) =>
+      typeof v === 'number' ? Math.round(v * (v > 1000 ? 1 : 100)) // handle cents vs decimal heuristics
+        : !isNaN(Number(v)) ? Math.round(Number(v) * 100) : 0;
 
-    const seatsInfo = evtResp.data.seats.filter((s: any) => seats.includes(s.id));
-    if (seatsInfo.length !== seats.length) throw new Error('one or more seats not found in catalog');
+    // verify event exists
+    const catalogResp = await axios.get(`${CATALOG_URL}/v1/events/${event_id}`);
+    if (!catalogResp?.data) throw new Error('Invalid event-id');
 
-    try {
-      await axios.post(`${SEATING_URL}/v1/seats/reserve`, { order_id: null, user_public_id, event_id, seats }, { timeout: 3000 });
-    } catch (err: any) {
-      const detail = err.response ? err.response.data : err.message;
-      const e: any = new Error('reservation failed');
-      e.detail = detail;
-      throw e;
-    }
+    // seating availability (authoritative seat state & prices)
+    const availResp = await axios.get(`${SEATING_URL}/v1/seats/availability`, {
+      params: { eventId: event_id }, timeout: 3000,
+    });
+    const availableList = availResp?.data?.availableSeatsList;
+    if (!Array.isArray(availableList)) throw new Error('Invalid seating availability response');
 
-    const subtotal = seatsInfo.reduce((s: number, it: any) => s + it.price_cents, 0);
+    const availableById = new Map(availableList.map((s: any) => [Number(s.id), s]));
+
+    // validate requested seats and create price snapshot
+    const seatSnapshots = seats.map((sid: number) => {
+      const seat = availableById.get(Number(sid));
+      if (!seat) throw Object.assign(new Error('Seat missing or not available'), { detail: { missingSeat: sid } });
+      if (String(seat.status).toUpperCase() !== 'AVAILABLE') throw Object.assign(new Error('Seat not available'), { detail: { seatId: sid, status: seat.status } });
+      return {
+        id: Number(seat.id),
+        code: (seat.seatNumber || seat.seat_code || seat.seatCode || '').toString(),
+        priceCents: seat.price_cents ?? toCents(seat.price)
+      };
+    });
+
+    // reserve (temporary hold)
+    const reserveResp = await axios.post(`${SEATING_URL}/v1/seats/reserve`, {
+      eventId: event_id, seatIds: seats, userId: user_id, ttl_seconds: 15 * 60
+    }, { timeout: 3000 });
+    if (!reserveResp?.data?.success) throw new Error('Seat reservation failed');
+
+    // totals and create PENDING order
+    const subtotal = seatSnapshots.reduce((sum: any, s: { priceCents: any; }) => sum + s.priceCents, 0);
     const tax = Math.ceil(subtotal * (TAX_PERCENT / 100));
     const total = subtotal + tax;
 
-    const newOrder = await this.commandRepo.createOrder({
+    const order = await this.commandRepo.createOrder({
       idempotencyKey,
-      userPublicId: user_public_id,
+      userId: user_id,
       eventId: event_id,
       totalCents: total,
       taxCents: tax,
     });
 
-    const orderId = newOrder.id;
-    for (const s of seatsInfo) {
-      await this.commandRepo.insertOrderItem(orderId, s.id, s.seat_code, s.price_cents);
+    // persist items
+    await Promise.all(seatSnapshots.map((s: { id: number; code: string; priceCents: number; }) => this.commandRepo.insertOrderItem(order.id, s.id, s.code, s.priceCents)));
+
+    const payIdempotency = `${idempotencyKey}-pay`;
+    let paymentResp;
+    try {
+      paymentResp = await axios.post(`${PAYMENT_URL}/v1/charge`, {
+        merchant_order_id: order.id, amount_cents: total, currency: 'INR'
+      }, { headers: { 'Idempotency-Key': payIdempotency }, timeout: 8000 });
+    } catch (err: any) {
+      // best-effort release + fail order if payment call itself errored
+      try { await axios.post(`${SEATING_URL}/v1/seats/release`, { eventId: event_id, seatIds: seats, orderId: order.id }, { timeout: 3000 }); } catch (_) { }
+      await this.commandRepo.updateOrderStatus(order.id, 'FAILED');
+      throw Object.assign(new Error('Payment service unreachable'), { detail: err?.response?.data ?? err?.message });
     }
 
-    const payIdempotency = idempotencyKey + '-pay';
-    const payResp = await axios.post(`${PAYMENT_URL}/v1/charge`, { order_id: orderId, amount_cents: total, currency: 'INR' }, {
-      headers: { 'Idempotency-Key': payIdempotency },
-      timeout: 5000,
-    });
+    const paymentData = paymentResp?.data;
+    const status = paymentData?.status ?? null;
 
-    return { order: newOrder, payment: payResp.data };
+    if (status === 'SUCCESS') {
+      // allocate, create tickets, confirm, notify
+      await axios.post(`${SEATING_URL}/v1/seats/allocate`, { eventId: event_id, seatIds: seats, orderId: order.id }).catch(async (e) => {
+        await axios.post(`${SEATING_URL}/v1/seats/release`, { eventId: event_id, seatIds: seats, orderId: order.id }).catch(() => { });
+        await this.commandRepo.updateOrderStatus(order.id, 'FAILED');
+        throw Object.assign(new Error('Seat allocation failed after payment'), { detail: e?.response?.data ?? e?.message });
+      });
+
+      await Promise.all(seats.map(async (seatId: number) => {
+        const ticketCode = 'TICKET-' + uuidv4();
+        await this.commandRepo.insertTicket(order.id, seatId, ticketCode);
+      }));
+      await this.commandRepo.updateOrderStatus(order.id, 'CONFIRMED');
+      axios.post(`${NOTIFICATION_URL}/v1/notify`, { type: 'ORDER_CONFIRMED', order_id: order.id, seats }).catch(e => this.logger.warn('notify err: ' + (e?.message ?? e)));
+    } else if (status === 'FAILED' || status === 'CANCELLED') {
+      await axios.post(`${SEATING_URL}/v1/seats/release`, { eventId: event_id, seatIds: seats, orderId: order.id }).catch(e => this.logger.warn('release err: ' + (e?.message ?? e)));
+      await this.commandRepo.updateOrderStatus(order.id, 'FAILED');
+      axios.post(`${NOTIFICATION_URL}/v1/notify`, { type: 'ORDER_FAILED', order_id: order.id, seats }).catch(e => this.logger.warn('notify err: ' + (e?.message ?? e)));
+    }
+    // else: PENDING - wait for async callback
+
+    return { order, payment: paymentData };
   }
 
   async handlePaymentCallback(order_id: string, payment_id: string, status: string) {

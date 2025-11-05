@@ -58,7 +58,7 @@ Built using **NestJS** and **PostgreSQL**, it follows a modular microservices ar
 CREATE TABLE orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     idempotency_key TEXT UNIQUE,
-    user_public_id UUID,
+    user_id INT,
     event_id INT,
     total_cents INT,
     tax_cents INT,
@@ -187,7 +187,7 @@ curl -X POST http://localhost:4003/v1/orders \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: abc123" \
   -d '{
-    "user_public_id": "7f7ddc5b-2099-44a1-9f52-3089eb15c1d9",
+    "user_id": "101",
     "event_id": 101,
     "seats": [1, 2, 3]
   }'

@@ -26,8 +26,8 @@ export class Order {
   @Column({ name: 'idempotency_key', type: 'text', nullable: true, unique: true })
   idempotencyKey!: string | null;
 
-  @Column({ name: 'user_public_id', type: 'uuid', nullable: true })
-  userPublicId!: string | null;
+  @Column({ name: 'user_id', type: 'int', nullable: true })
+  userId!: number | null;
 
   @Column({ name: 'event_id', type: 'int', nullable: true })
   eventId!: number | null;
