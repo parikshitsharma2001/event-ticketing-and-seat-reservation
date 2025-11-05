@@ -41,6 +41,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # Payment Service Database
+  paymentdb:
+    image: postgres:14-alpine
+    container_name: paymentdb
+    environment:
+      POSTGRES_DB: paymentdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - ticketing-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for distributed locking
   redis:
     image: redis:7-alpine
@@ -107,6 +127,35 @@ services:
       retries: 3
       start_period: 40s
 
+    
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: payment-service
+    ports:
+      - "4004:4004"
+    environment:
+      PORT: 4004
+      DATABASE_HOST: paymentdb
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: paymentdb
+      ORDER_CALLBACK_URL: http://user-service:8081/v1/payments/callback
+    depends_on:
+      paymentdb:
+        condition: service_healthy
+    networks:
+      - ticketing-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # Prometheus for monitoring
   prometheus:
     image: prom/prometheus:latest
@@ -140,6 +189,7 @@ services:
 volumes:
   user-db-data:
   seating-db-data:
+  payment-db-data:
   prometheus-data:
   grafana-data:
 

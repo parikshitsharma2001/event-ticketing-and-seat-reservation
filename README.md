@@ -8,11 +8,11 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 ### Services Implemented
 1. **User Service** (Port 8081) - Authentication and user management
 2. **Seating Service** (Port 8082) - Seat inventory, reservations, and allocations
+3. **Payment Service** (Port 4004) - Payments, refunds, idempotency markers, order bookings
 
 ### Additional Services (To Be Implemented)
-3. **Catalog Service** - Event and venue management
-4. **Order Service** - Order processing and ticket generation
-5. **Payment Service** - Payment processing with idempotency
+4. **Catalog Service** - Event and venue management
+5. **Order Service** - Order processing and ticket generation
 
 ## Technology Stack
 
@@ -23,6 +23,9 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 - **PostgreSQL** - Relational database
 - **Redis** - Distributed caching and locking
 - **JWT** - Authentication tokens
+
+- **TypeScript** - Programming language
+- **NestJS** - Backend framework
 
 ### DevOps & Monitoring
 - **Docker** - Containerization
@@ -70,6 +73,31 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 │   ├── pom.xml
 │   └── README.md
 │
+├── payment-service/
+│   ├── .gitignore
+│   ├── Dockerfile
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── src/
+│       ├── app.module.ts
+│       ├── config/
+│       │   └── database.ts
+│       ├── main.ts
+│       └── payments/
+│           ├── controller/
+│           │   └── payments.ts
+│           ├── dto/
+│           │   ├── create-charge.dto.ts
+│           │   └── refund.dto.ts
+│           ├── entities/
+│           │   └── payment.entity.ts
+│           ├── payments.module.ts
+│           ├── repository/
+│           │   ├── payment.command.ts
+│           │   └── payments.query.ts
+│           └── service/
+│               └── payments.ts
 ├── docker-compose.yml
 ├── prometheus.yml
 └── README.md
@@ -85,6 +113,9 @@ Each microservice has its own dedicated database:
    
 2. **seatingdb** - Seating Service database
    - Seats table
+
+3. **paymentsdb** - Payment Service database
+   - Payments table   
 
 ## Key Features
 
@@ -104,11 +135,24 @@ Each microservice has its own dedicated database:
 - Seat allocation for orders
 - Comprehensive availability reports
 
+### Payment Service
+- Idempotent payment processing
+- Order service callback integration
+- Refund handling for successful payments
+- Payment state tracking (PENDING, SUCCESS, FAILED, REFUNDED)
+- PostgreSQL persistence with TypeORM
+- CQRS-based repository pattern (commands & queries)
+- Health check endpoint for monitoring
+- Modular NestJS architecture (controller, service, repository, DTOs)
+- Structured logging and Prometheus-ready metrics
+- Secure, scalable, and easily extensible design
+
 ## Running the Application
 
 ### Prerequisites
 - Java 11
 - Maven 3.6+
+- Node 21
 - Docker & Docker Compose
 - PostgreSQL (if running locally)
 - Redis (if running locally)
@@ -123,6 +167,7 @@ docker-compose up --build
 2. Access services:
 - User Service: http://localhost:8081
 - Seating Service: http://localhost:8082
+- Payment Service: http://localhost:4004
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000 (admin/admin)
 
@@ -138,6 +183,7 @@ docker-compose down
 # PostgreSQL
 createdb userdb
 createdb seatingdb
+createdb paymentdb
 
 # Redis
 redis-server
@@ -157,6 +203,14 @@ mvn clean install
 mvn spring-boot:run
 ```
 
+3. Build and run Payment Service (in new terminal):
+```bash
+cd payment-service
+npm install
+npm run build
+npm run start
+```
+
 ## API Documentation
 
 ### User Service Endpoints
@@ -171,6 +225,12 @@ mvn spring-boot:run
 - `POST /v1/seats/reserve` - Reserve seats
 - `POST /v1/seats/allocate` - Allocate seats
 - `POST /v1/seats/release` - Release seats
+
+### Payment Service Endpoints
+- `GET /health` - Health check endpoint for monitoring
+- `POST /v1/charge` - Create a new payment charge (idempotent)
+- `GET /v1/payments/{id}` - Retrieve payment details by ID
+- `POST /v1/refund` - Process a refund for a successful payment
 
 For detailed API documentation, see individual service README files.
 
@@ -205,15 +265,43 @@ curl -X POST http://localhost:8082/v1/seats/reserve \
   }'
 ```
 
+### 4. Create a Charge (Idempotent)
+```bash
+curl -X POST http://localhost:4004/v1/charge \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: 12345-ABCDE" \
+  -d '{
+    "merchant_order_id": "b418c1e8-908f-4c90-b77d-5d99c52b1fa3",
+    "amount_cents": 1250,
+    "currency": "INR"
+  }'
+```
+
+### 5. Get Payment By ID
+```bash
+curl -X GET http://localhost:4004/v1/payments/a29d6b24-97e7-4c03-bc8b-1fa44c2b5d45
+```
+
+### 6. Refund a Payment
+```bash
+curl -X POST http://localhost:4004/v1/refund \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payment_id": "a29d6b24-97e7-4c03-bc8b-1fa44c2b5d45"
+  }'
+```
+
 ## Monitoring
 
 ### Health Checks
 - User Service: http://localhost:8081/actuator/health
 - Seating Service: http://localhost:8082/actuator/health
+- Payment Service: http://localhost:4004/health
 
 ### Metrics
 - User Service Metrics: http://localhost:8081/actuator/prometheus
 - Seating Service Metrics: http://localhost:8082/actuator/prometheus
+- Payment Service Metrics: http://localhost:4004/metrics
 
 ### Custom Metrics
 
@@ -365,5 +453,6 @@ This project is created for educational purposes as part of a scalable systems a
 ## Acknowledgments
 
 - Spring Boot Documentation
+- NestJS Documentation
 - Microservices Patterns by Chris Richardson
 - Assignment guidelines and requirements
