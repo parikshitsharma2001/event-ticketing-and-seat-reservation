@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, Res, HttpStatus, UsePipes, ValidationPipe, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, Res, HttpStatus, UsePipes, ValidationPipe, ParseIntPipe } from '@nestjs/common';
 import { CatalogService } from '../service/catalog';
 import { Response } from 'express';
 import { CreateVenueDto } from '../dto/venue.dto';

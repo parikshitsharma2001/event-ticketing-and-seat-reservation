@@ -6,7 +6,7 @@ import { OrdersCommandRepository } from '../repository/orders.command';
 import { CreateOrderDto } from '../dto/create-order.dto';
 
 const CATALOG_URL = process.env.CATALOG_URL;
-const RESERVATION_URL = process.env.RESERVATION_URL;
+const SEATING_URL = process.env.SEATING_URL;
 const PAYMENT_URL = process.env.PAYMENT_URL;
 const NOTIFICATION_URL = process.env.NOTIFICATION_URL;
 const TAX_PERCENT = Number(process.env.TAX_PERCENT);
@@ -33,7 +33,7 @@ export class OrdersService {
     if (seatsInfo.length !== seats.length) throw new Error('one or more seats not found in catalog');
 
     try {
-      await axios.post(`${RESERVATION_URL}/v1/seats/reserve`, { order_id: null, user_public_id, event_id, seats }, { timeout: 3000 });
+      await axios.post(`${SEATING_URL}/v1/seats/reserve`, { order_id: null, user_public_id, event_id, seats }, { timeout: 3000 });
     } catch (err: any) {
       const detail = err.response ? err.response.data : err.message;
       const e: any = new Error('reservation failed');
@@ -78,7 +78,7 @@ export class OrdersService {
       const items = await this.queryRepo.findOrderItems(order_id);
       const seats = items.map((r: any) => r.seat_id);
 
-      await axios.post(`${RESERVATION_URL}/v1/seats/allocate`, { order_id, event_id: order.eventId, seats }).catch((e) => {
+      await axios.post(`${SEATING_URL}/v1/seats/allocate`, { order_id, event_id: order.eventId, seats }).catch((e) => {
         this.logger.warn('reservation allocate err: ' + (e?.message ?? e));
       });
 
@@ -101,7 +101,7 @@ export class OrdersService {
       const seats = items.map((r: any) => r.seat_id);
 
       try {
-        await axios.post(`${RESERVATION_URL}/v1/seats/release`, { order_id, event_id: order.eventId, seats }, { timeout: 3000 });
+        await axios.post(`${SEATING_URL}/v1/seats/release`, { order_id, event_id: order.eventId, seats }, { timeout: 3000 });
       } catch (e: any) {
         this.logger.warn('release err: ' + (e?.message ?? e));
       }

@@ -106,7 +106,7 @@ CREATE TABLE tickets (
 | `DATABASE_PASSWORD` | PostgreSQL password              |
 | `DATABASE_NAME`     | PostgreSQL database name         |
 | `CATALOG_URL`       | Catalog Service base URL         |
-| `RESERVATION_URL`   | Reservation Service base URL     |
+| `SEATING_URL`   | Reservation Service base URL     |
 | `PAYMENT_URL`       | Payment Service base URL         |
 | `NOTIFICATION_URL`  | Notification Service base URL    |
 | `TAX_PERCENT`       | Tax percentage applied to orders |
@@ -162,7 +162,7 @@ docker run -p 4003:4003 \
   -e DATABASE_USERNAME=postgres \
   -e DATABASE_PASSWORD=postgres \
   -e CATALOG_URL=http://catalog-service:4001 \
-  -e RESERVATION_URL=http://reservation-service:4002 \
+  -e SEATING_URL=http://seating-service:4002 \
   -e PAYMENT_URL=http://payment-service:4004 \
   -e NOTIFICATION_URL=http://notification-service:4005 \
   order-service:latest
