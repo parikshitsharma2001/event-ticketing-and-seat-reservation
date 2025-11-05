@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventsCommand } from '../repository/events.command';
-import { SeatsCommand } from '../repository/seats.command';
 import { EventsQuery } from '../repository/events.query';
 import { VenuesCommand } from '../repository/venues.command';
 import { CreateVenueDto } from '../dto/venue.dto';
@@ -13,7 +12,6 @@ export class CatalogService {
   constructor(
     private readonly eventsCmd: EventsCommand,
     private readonly eventsQry: EventsQuery,
-    private readonly seatsCmd: SeatsCommand,
     private readonly venuesCmd: VenuesCommand,
   ) { }
 
@@ -23,10 +21,6 @@ export class CatalogService {
 
   async createEvent(payload: CreateEventDto) {
     return this.eventsCmd.createEvent(payload);
-  }
-
-  async createSeats(eventId: number | string, seats: Array<any>) {
-    return this.seatsCmd.createSeatsBulk(eventId, seats);
   }
 
   async listEvents(filters: EventsFilterDto) {

@@ -1,6 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Venue } from './venue';
-import { Seat } from './seat';
 
 @Entity({ name: 'events' })
 export class Event {
@@ -31,7 +30,4 @@ export class Event {
 
   @Column({ type: 'text', nullable: true })
   description!: string;
-
-  @OneToMany(() => Seat, (seat) => seat.event)
-  seats!: Seat[];
 }

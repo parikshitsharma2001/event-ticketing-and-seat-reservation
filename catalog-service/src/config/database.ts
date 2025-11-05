@@ -24,16 +24,6 @@ export async function initDb(): Promise<void> {
       status TEXT NOT NULL DEFAULT 'ON_SALE',
       description TEXT
     );
-    CREATE TABLE IF NOT EXISTS seats (
-      id SERIAL PRIMARY KEY,
-      event_id INT NOT NULL,
-      seat_code TEXT NOT NULL,
-      row TEXT,
-      number INT,
-      seat_type TEXT,
-      price_cents INT NOT NULL,
-      UNIQUE (event_id, seat_code)
-    );
   `);
   console.log('Catalog DB initialized');
 }

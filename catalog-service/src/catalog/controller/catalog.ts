@@ -3,7 +3,6 @@ import { CatalogService } from '../service/catalog';
 import { Response } from 'express';
 import { CreateVenueDto } from '../dto/venue.dto';
 import { CreateEventDto, ListEventsQueryDto } from '../dto/event.dto';
-import { CreateSeatsDto } from '../dto/seats.dto';
 
 @Controller()
 export class CatalogController {
@@ -46,27 +45,6 @@ export class CatalogController {
         createEventDto,
       );
       return response.status(HttpStatus.CREATED).json(createdEvent);
-    } catch (error) {
-      console.error(error);
-      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-        error: JSON.stringify(error),
-      });
-    }
-  }
-
-  @Post('/v1/events/:eventId/seats')
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async createSeats(
-    @Param('eventId', ParseIntPipe) eventId: number,
-    @Body() createSeatsDto: CreateSeatsDto,
-    @Res() response: Response,
-  ) {
-    try {
-      const createdSeats = await this.catalogService.createSeats(
-        eventId,
-        createSeatsDto.seats,
-      );
-      return response.status(HttpStatus.CREATED).json(createdSeats);
     } catch (error) {
       console.error(error);
       return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({

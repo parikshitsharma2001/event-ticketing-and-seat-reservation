@@ -2,43 +2,55 @@
 
 ## Overview
 
-Catalog Service manages events, venues, and seats for the Event Ticketing System. It provides CRUD operations, event discovery, and seat management. Built to be modular and Docker-ready, it is intended to be used alongside other services (seating, order, payment, notification).
+The **Catalog Service** provides event and venue management capabilities for the Event Ticketing System. It stores venues and events, and exposes APIs to create/list events and venues. It is built with **NestJS** and uses a dedicated **PostgreSQL** database.
 
 ## Technologies
 
 * Node.js 21
-* NestJS 10 (or plain TypeScript modules compatible with Nest structure)
-* TypeORM
+* NestJS 10
+* TypeORM (optional — service currently uses `pg` for direct queries; entities can be added)
 * PostgreSQL
-* prom-client (optional for metrics)
+* Axios (for inter-service communication if needed)
+* Prometheus-compatible Metrics
 * Docker
 
 ## Features
 
-* CRUD operations for venues and events
-* Bulk seat creation for events
-* Event filtering & search by city, type, status (`ON_SALE`, `SOLD_OUT`, `CANCELLED`)
-* Join event listings with venue metadata
-* PostgreSQL persistence via TypeORM (entities: Venue, Event, Seat)
-* Command / Query repository separation (CQRS style)
-* Health and basic metrics endpoint support
-* Docker-based deployment
+* Create and manage venues
+* Create and manage events (title, type, times, status, description)
+* Listing and querying events with filters (city, type, status)
+* Simple, validated DTOs for request payloads
+* Health and metrics endpoints for monitoring
+* Modular NestJS architecture (controller, service, repository/DB layer, DTOs)
+* Docker-friendly for local and CI use
+
+---
 
 ## API Endpoints
 
-### Venues
+### Health & Metrics
 
-* `POST /v1/venues` - Create a venue
-* `GET /health` - Health check
+* `GET /health` — Health check endpoint
+* `GET /metrics` — (If implemented) system metrics (CPU, RAM, uptime)
 
-### Events
+### Venues & Events
 
-* `POST /v1/events` - Create an event
-* `POST /v1/events/:eventId/seats` - Create multiple seats for an event (bulk)
-* `GET /v1/events` - List events (optional filters: `city`, `type`, `status`)
-* `GET /v1/events/:id` - Get event details including seats
+* `POST /v1/venues` — Create a new venue
+
+  * Body: `{ name: string, city?: string, address?: string, capacity?: number }`
+* `POST /v1/events` — Create a new event
+
+  * Body: `{ venue_id: number, title: string, type?: string, start_time: string (ISO), end_time?: string (ISO), status?: string, description?: string }`
+* `GET /v1/events` — List events (supports query filters)
+
+  * Query params: `city`, `type`, `status`
+* `GET /v1/events/:id` — Get event details by numeric ID
+
+---
 
 ## Database Schema
+
+The service initializes its DB with the following schema (SQL):
 
 ### Venues Table
 
@@ -57,7 +69,7 @@ CREATE TABLE venues (
 ```sql
 CREATE TABLE events (
   id SERIAL PRIMARY KEY,
-  venue_id INT NOT NULL REFERENCES venues(id) ON DELETE CASCADE,
+  venue_id INT NOT NULL,
   title TEXT NOT NULL,
   type TEXT,
   start_time TIMESTAMP NOT NULL,
@@ -67,35 +79,24 @@ CREATE TABLE events (
 );
 ```
 
-### Seats Table
+> Note: There is no explicit foreign-key constraint in the provided `initDb()` snippet between `events.venue_id` and `venues.id`. If you want referential integrity, add `REFERENCES venues(id)` to `venue_id`.
 
-```sql
-CREATE TABLE seats (
-  id SERIAL PRIMARY KEY,
-  event_id INT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  seat_code TEXT NOT NULL,
-  row TEXT,
-  number INT,
-  seat_type TEXT,
-  price_cents INT NOT NULL,
-  UNIQUE (event_id, seat_code)
-);
-```
+---
 
 ## Configuration
 
 ### Environment Variables
 
-| Variable          | Description              |
-| ----------------- | ------------------------ |
-| DATABASE_HOST     | PostgreSQL hostname      |
-| DATABASE_PORT     | PostgreSQL port          |
-| DATABASE_USERNAME | PostgreSQL username      |
-| DATABASE_PASSWORD | PostgreSQL password      |
-| DATABASE_NAME     | PostgreSQL database name |
-| PORT              | Service port             |
+| Variable            | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `DATABASE_HOST`     | PostgreSQL hostname                                           |
+| `DATABASE_PORT`     | PostgreSQL port                                               |
+| `DATABASE_USERNAME` | PostgreSQL username                                           |
+| `DATABASE_PASSWORD` | PostgreSQL password                                           |
+| `DATABASE_NAME`     | PostgreSQL database name                                      |
+| `PORT`              | Service port (defaults to the value used in the code or 4001) |
 
-> NOTE: Do **not** commit secrets. Provide these values via environment or Docker Compose.
+---
 
 ## Running Locally
 
@@ -103,7 +104,7 @@ CREATE TABLE seats (
 
 * Node.js 21+
 * npm
-* PostgreSQL (or run via Docker)
+* PostgreSQL
 
 ### Steps
 
@@ -125,6 +126,10 @@ npm run build
 npm run start
 ```
 
+> If you use TypeORM or add entities later, run migrations or enable `synchronize` carefully in development.
+
+---
+
 ## Running with Docker
 
 ### Build Docker image:
@@ -145,13 +150,17 @@ docker run -p 4001:4001 \
   catalog-service:latest
 ```
 
-### Running with Docker Compose
+---
 
-Add a `catalogdb` service (postgres image) and a `catalog-service` entry in your root `docker-compose.yml` and run:
+## Running with Docker Compose
+
+Start the whole stack (example `docker-compose.yml` must include a `catalogdb` service as in your compose):
 
 ```bash
-docker-compose up catalogdb catalog-service
+docker-compose up catalog-service
 ```
+
+---
 
 ## Testing API
 
@@ -161,10 +170,10 @@ docker-compose up catalogdb catalog-service
 curl -X POST http://localhost:4001/v1/venues \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Grand Hall",
-    "city": "Mumbai",
+    "name": "Town Hall",
+    "city": "Bengaluru",
     "address": "123 Main St",
-    "capacity": 5000
+    "capacity": 2000
   }'
 ```
 
@@ -175,76 +184,59 @@ curl -X POST http://localhost:4001/v1/events \
   -H "Content-Type: application/json" \
   -d '{
     "venue_id": 1,
-    "title": "Indie Music Fest",
-    "type": "Music",
+    "title": "Indie Music Night",
+    "type": "MUSIC",
     "start_time": "2025-12-10T18:00:00Z",
-    "end_time": "2025-12-10T22:00:00Z",
+    "end_time": "2025-12-10T21:00:00Z",
     "status": "ON_SALE",
-    "description": "An evening of indie bands."
+    "description": "An evening of independent music."
   }'
 ```
 
-### 3. Create Seats (Bulk)
+### 3. List Events (filter by city/type/status)
 
 ```bash
-curl --location 'http://localhost:4001/v1/events/1/seats' \
---header 'Content-Type: application/json' \
---data '{
-    "seats": [
-        {
-            "event_id": 1,
-            "seat_code": "A1",
-            "row": "A",
-            "number": 1,
-            "seat_type": "VIP",
-            "price_cents": 5000
-        },
-        {
-            "event_id": 2,
-            "seat_code": "A2",
-            "row": "A",
-            "number": 2,
-            "seat_type": "VIP",
-            "price_cents": 5000
-        }
-    ]
-}'
+curl -X GET "http://localhost:4001/v1/events?city=Bengaluru&type=MUSIC&status=ON_SALE"
 ```
 
-### 4. List Events (with filters)
-
-```bash
-curl -X GET "http://localhost:4001/v1/events?city=Mumbai&type=Music&status=ON_SALE"
-```
-
-### 5. Get Event by ID
+### 4. Get Event by ID
 
 ```bash
 curl -X GET http://localhost:4001/v1/events/1
 ```
 
-### 6. Health Check
+### 5. Health Check
 
 ```bash
 curl -X GET http://localhost:4001/health
 ```
 
-## Monitoring Metrics
+---
 
-* The service exposes a `/health` endpoint for basic liveness/readiness checks.
-* You can add `prom-client` metrics (response times, counts) and expose `/metrics` for Prometheus scraping.
+## Monitoring & Metrics
 
-## Security
+The service exposes a minimal `/health` endpoint. You can add a `/metrics` endpoint (Prometheus) similar to other services in the system to export:
 
-* Validate and sanitize inputs before persisting.
-* Protect admin endpoints (create/update/delete) with auth in production.
-* Use TLS for inter-service communication and protect DB credentials via secrets.
+* CPU load
+* Memory usage
+* Uptime
+* Custom business metrics (events created, venues count)
+
+---
+
+## Security & Validation
+
+* Request payloads should be validated using DTOs and `class-validator` (the controller uses `ValidationPipe` in endpoints).
+* Avoid exposing DB credentials — load them via environment variables.
+* Consider adding rate limiting / authentication on write endpoints in production.
+
+---
 
 ## Future Enhancements
 
-* Pagination for `GET /v1/events`
-* Venue endpoints for update/list/delete
-* Event publishing (webhooks) when status changes (e.g., `CANCELLED`)
-* Prometheus metrics + Grafana dashboards
-* Integration with search engine (Elasticsearch) for advanced filtering and full-text search
-* Input validation via DTOs and class-validator (if using NestJS)
+* Introduce foreign key constraints between `events.venue_id` and `venues.id`.
+* Add pagination, sorting, and richer filters for `GET /v1/events`.
+* Add OpenAPI/Swagger docs (`@nestjs/swagger`) for auto-generated API docs.
+* Add Prometheus metrics and tracing (OpenTelemetry).
+* Add admin UI for managing venues & events.
+* Add migrations (TypeORM or another tool) and CI integration.
