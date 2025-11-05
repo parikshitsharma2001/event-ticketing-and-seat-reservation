@@ -61,6 +61,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # Catalogue Service Database
+  catalogdb:
+    image: postgres:14-alpine
+    container_name: catalogdb
+    environment:
+      POSTGRES_DB: catalogdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - catalogue-db-data:/var/lib/postgresql/data
+    networks:
+      - ticketing-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for distributed locking
   redis:
     image: redis:7-alpine
@@ -127,7 +147,6 @@ services:
       retries: 3
       start_period: 40s
 
-    
   # Payment Service
   payment-service:
     build:
@@ -151,6 +170,33 @@ services:
       - ticketing-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Catalog Service
+  catalog-service:
+    build:
+      context: ./catalog-service
+      dockerfile: Dockerfile
+    container_name: catalog-service
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      DATABASE_HOST: catalogdb
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: catalogdb
+    depends_on:
+      catalogdb:
+        condition: service_healthy
+    networks:
+      - ticketing-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -190,6 +236,7 @@ volumes:
   user-db-data:
   seating-db-data:
   payment-db-data:
+  catalogue-db-data:
   prometheus-data:
   grafana-data:
 
