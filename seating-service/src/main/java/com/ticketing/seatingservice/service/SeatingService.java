@@ -241,7 +241,7 @@ public class SeatingService {
     }
     
     @Transactional(readOnly = true)
-    public List<SeatDTO> getSeatsByOrderId(Long orderId) {
+    public List<SeatDTO> getSeatsByOrderId(String orderId) {
         log.info("Fetching seats for order: {}", orderId);
         List<Seat> seats = seatRepository.findByOrderId(orderId);
         return seats.stream()

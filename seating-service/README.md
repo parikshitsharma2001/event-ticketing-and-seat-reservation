@@ -61,7 +61,7 @@ CREATE TABLE seats (
     price DECIMAL(10,2) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
     reserved_by BIGINT,
-    order_id BIGINT,
+    order_id VARCHAR(36),
     reserved_at TIMESTAMP,
     reservation_expires_at TIMESTAMP,
     version BIGINT,
@@ -226,7 +226,7 @@ curl -X POST http://localhost:8082/v1/seats/allocate \
   -H "Content-Type: application/json" \
   -d '{
     "seatIds": [1, 2, 3],
-    "orderId": 500
+    "orderId": "550e8400-e29b-41d4-a716-446655440000"
   }'
 ```
 

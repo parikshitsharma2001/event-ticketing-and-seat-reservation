@@ -18,6 +18,6 @@ public class SeatAllocationRequest {
     @NotEmpty(message = "At least one seat ID is required")
     private List<Long> seatIds;
     
-    @NotNull(message = "Order ID is required")
-    private Long orderId;
+    @NotBlank(message = "Order ID is required")
+    private String orderId;
 }
