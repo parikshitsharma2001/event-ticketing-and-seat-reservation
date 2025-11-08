@@ -1,30 +1,30 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: userdb-pvc
+  name: orderdb-pvc
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 2Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: userdb
+  name: orderdb
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: userdb
+      app: orderdb
   template:
     metadata:
       labels:
-        app: userdb
+        app: orderdb
     spec:
       containers:
-      - name: userdb
+      - name: orderdb
         image: postgres:15
         env:
         - name: POSTGRES_USER
@@ -65,15 +65,15 @@ spec:
       volumes:
       - name: storage
         persistentVolumeClaim:
-          claimName: userdb-pvc
+          claimName: orderdb-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: userdb
+  name: orderdb
 spec:
   selector:
-    app: userdb
+    app: orderdb
   ports:
   - port: 5432
     targetPort: 5432
