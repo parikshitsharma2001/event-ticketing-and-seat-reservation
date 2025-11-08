@@ -44,7 +44,7 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
            "WHERE s.status = 'RESERVED' AND s.reservationExpiresAt < :now")
     int releaseExpiredReservations(@Param("now") LocalDateTime now);
     
-    List<Seat> findByOrderId(Long orderId);
+    List<Seat> findByOrderId(String orderId);
     
     @Query("SELECT s FROM Seat s WHERE s.eventId = :eventId AND s.section = :section " +
            "AND s.status = 'AVAILABLE' ORDER BY s.rowNumber, s.seatNumber")

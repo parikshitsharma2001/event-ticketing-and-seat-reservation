@@ -24,7 +24,7 @@ public class SeatDTO {
     private BigDecimal price;
     private SeatStatus status;
     private Long reservedBy;
-    private Long orderId;
+    private String orderId;
     private LocalDateTime reservedAt;
     private LocalDateTime reservationExpiresAt;
     private LocalDateTime createdAt;

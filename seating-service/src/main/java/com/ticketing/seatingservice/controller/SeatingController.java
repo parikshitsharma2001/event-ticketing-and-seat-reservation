@@ -46,7 +46,7 @@ public class SeatingController {
     }
     
     @GetMapping("/order/{orderId}")
-    public ResponseEntity<List<SeatDTO>> getSeatsByOrderId(@PathVariable Long orderId) {
+    public ResponseEntity<List<SeatDTO>> getSeatsByOrderId(@PathVariable String orderId) {
         log.info("GET /v1/seats/order/{}", orderId);
         List<SeatDTO> seats = seatingService.getSeatsByOrderId(orderId);
         return ResponseEntity.ok(seats);

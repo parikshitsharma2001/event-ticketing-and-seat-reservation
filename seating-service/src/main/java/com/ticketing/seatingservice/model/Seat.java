@@ -58,7 +58,7 @@ public class Seat {
     private Long reservedBy; // User ID who reserved
     
     @Column(name = "order_id")
-    private Long orderId; // Order ID if allocated
+    private String orderId; // Order ID (UUID) if allocated
     
     @Column(name = "reserved_at")
     private LocalDateTime reservedAt;
