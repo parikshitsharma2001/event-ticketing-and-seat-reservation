@@ -9,9 +9,9 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 1. **User Service** (Port 8081) - Authentication and user management
 2. **Seating Service** (Port 8082) - Seat inventory, reservations, and allocations
 3. **Payment Service** (Port 4004) - Payments, refunds, idempotency markers, order bookings
+4. **Catalog Service** - (Port 8000) - Event and venue management
 
 ### Additional Services (To Be Implemented)
-4. **Catalog Service** - Event and venue management
 5. **Order Service** - Order processing and ticket generation
 
 ## Technology Stack
@@ -26,6 +26,9 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 
 - **TypeScript** - Programming language
 - **NestJS** - Backend framework
+
+- **Python 3.13** - Programming language
+- **Fast API** - Application framework
 
 ### DevOps & Monitoring
 - **Docker** - Containerization
@@ -117,6 +120,10 @@ Each microservice has its own dedicated database:
 3. **paymentsdb** - Payment Service database
    - Payments table   
 
+4. **catalogdb** - Catalog Service database
+   - Venues table   
+   - Events table
+
 ## Key Features
 
 ### User Service
@@ -153,6 +160,7 @@ Each microservice has its own dedicated database:
 - Java 11
 - Maven 3.6+
 - Node 21
+- Python 3+
 - Docker & Docker Compose
 - PostgreSQL (if running locally)
 - Redis (if running locally)
@@ -168,6 +176,7 @@ docker-compose up --build
 - User Service: http://localhost:8081
 - Seating Service: http://localhost:8082
 - Payment Service: http://localhost:4004
+- Catalog Service: http://localhost:8000
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000 (admin/admin)
 
@@ -231,6 +240,13 @@ npm run start
 - `POST /v1/charge` - Create a new payment charge (idempotent)
 - `GET /v1/payments/{id}` - Retrieve payment details by ID
 - `POST /v1/refund` - Process a refund for a successful payment
+
+### Catalog Service Endpoints
+- `GET /health` - Health check endpoint for monitoring
+- `/v1/venues` - Retrieve all venues
+- `GET /v1/venues/{venue_id}` - Retrieve details of a specific venue
+- `POST /v1/events` - Create a new event
+- `GET /v1/events/search?city=&event_type=&status=` - Search and filter events by city, event type, or status
 
 For detailed API documentation, see individual service README files.
 
@@ -297,6 +313,7 @@ curl -X POST http://localhost:4004/v1/refund \
 - User Service: http://localhost:8081/actuator/health
 - Seating Service: http://localhost:8082/actuator/health
 - Payment Service: http://localhost:4004/health
+- Catalog Service: http://localhost:8000/health
 
 ### Metrics
 - User Service Metrics: http://localhost:8081/actuator/prometheus
