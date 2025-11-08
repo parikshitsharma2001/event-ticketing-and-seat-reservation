@@ -277,7 +277,9 @@ services:
 
   # New Event Catalog Service
   event-catalog-service:
-    build: .
+    build: 
+      context: ./event-catalog-service
+      dockerfile: Dockerfile
     container_name: event-catalog-service
     depends_on:
       catalog-db:
@@ -285,7 +287,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - .env
+      - event-catalog-service/.env
     networks:
       - catalog-net
     command: >
