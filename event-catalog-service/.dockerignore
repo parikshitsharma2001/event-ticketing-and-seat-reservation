@@ -1,0 +1,24 @@
+# Python cache and environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.env
+
+# Git and local setup
+.git
+.gitignore
+
+# IDE and editor files
+.vscode/
+.idea/
+
+# Data & seeds
+#*.csv
+*.zip
+*.xlsx
+
+# OS-specific files
+.DS_Store
+Thumbs.db

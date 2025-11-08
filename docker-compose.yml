@@ -80,6 +80,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  
+  # New Catalog Database for Catalog Service
+  catalog-db:
+    image: postgres:16
+    container_name: catalog-db
+    restart: always
+    environment:
+      POSTGRES_USER: catalog_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: catalog_db
+    ports:
+      - "5438:5432"
+    volumes:
+      - catalog_data:/var/lib/postgresql/data
+    networks:
+      - catalog-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog_user -d catalog_db"]
+      interval: 5s
+      retries: 5
+      start_period: 5s  
 
   # Order Service Database
   orderdb:
@@ -254,6 +275,25 @@ services:
       retries: 3
       start_period: 40s
 
+  # New Event Catalog Service
+  event-catalog-service:
+    build: .
+    container_name: event-catalog-service
+    depends_on:
+      catalog-db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    networks:
+      - catalog-net
+    command: >
+      sh -c "python -m app.db.wait_for_db &&
+         python -m app.db.seed_data &&
+         uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+
   # Prometheus for monitoring
   prometheus:
     image: prom/prometheus:latest
@@ -292,7 +332,10 @@ volumes:
   order-db-data:
   prometheus-data:
   grafana-data:
+  catalog_data:
 
 networks:
   ticketing-network:
+    driver: bridge
+  catalog-net:
     driver: bridge
