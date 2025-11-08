@@ -203,7 +203,7 @@ services:
       DATABASE_USERNAME: postgres
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: paymentdb
-      ORDER_CALLBACK_URL: http://user-service:8081/v1/payments/callback
+      ORDER_CALLBACK_URL: http://order-service:4003/v1/payments/callback
     depends_on:
       paymentdb:
         condition: service_healthy

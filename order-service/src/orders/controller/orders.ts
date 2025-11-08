@@ -54,7 +54,7 @@ export class OrdersController {
       return res.status(201).json(result);
     } catch (error: any) {
       this.logger.error(error);
-      return res.status(error?.status || HttpStatus.INTERNAL_SERVER_ERROR).json({ error: JSON.stringify(error) });
+      return res.status(error?.status || HttpStatus.INTERNAL_SERVER_ERROR).json(error);
     }
   }
 

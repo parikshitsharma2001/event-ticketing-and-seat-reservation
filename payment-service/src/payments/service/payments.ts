@@ -44,6 +44,7 @@ export class PaymentsService {
       }, { timeout: 2000 });
     } catch (err: any) {
       this.logger.warn('Order callback failed: ' + (err.message ?? err));
+      throw err;
     }
 
     return updated;
