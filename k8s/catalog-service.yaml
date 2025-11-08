@@ -61,6 +61,7 @@ spec:
       targetPort: 4001
       protocol: TCP
       name: http
+      nodePort: 30081
   selector:
     app: catalog-service
-  type: ClusterIP
+  type: NodePort

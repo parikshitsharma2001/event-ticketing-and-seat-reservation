@@ -55,6 +55,7 @@ spec:
       targetPort: 8081
       protocol: TCP
       name: http
+      nodePort: 30085
   selector:
     app: user-service
-  type: ClusterIP
+  type: NodePort

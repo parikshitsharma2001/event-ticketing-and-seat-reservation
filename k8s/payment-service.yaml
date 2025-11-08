@@ -61,8 +61,9 @@ spec:
   ports:
     - port: 4004
       targetPort: 4004
+      nodePort: 30084
       protocol: TCP
       name: http
   selector:
     app: payment-service
-  type: ClusterIP
+  type: NodePort

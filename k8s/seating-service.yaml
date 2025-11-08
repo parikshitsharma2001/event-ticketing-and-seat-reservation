@@ -59,6 +59,7 @@ spec:
       targetPort: 8082
       protocol: TCP
       name: http
+      nodePort: 30084
   selector:
     app: seating-service
-  type: ClusterIP
+  type: NodePort

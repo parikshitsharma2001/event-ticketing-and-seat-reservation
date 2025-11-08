@@ -71,6 +71,7 @@ spec:
       targetPort: 4003
       protocol: TCP
       name: http
+      nodePort: 30082
   selector:
     app: order-service
-  type: ClusterIP
+  type: NodePort
