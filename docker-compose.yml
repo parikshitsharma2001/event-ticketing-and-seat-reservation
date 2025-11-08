@@ -203,7 +203,7 @@ services:
       DATABASE_USERNAME: postgres
       DATABASE_PASSWORD: postgres
       DATABASE_NAME: paymentdb
-      ORDER_CALLBACK_URL: http://user-service:8081/v1/payments/callback
+      ORDER_CALLBACK_URL: http://order-service:4003/v1/payments/callback
     depends_on:
       paymentdb:
         condition: service_healthy
@@ -289,11 +289,8 @@ services:
     env_file:
       - event-catalog-service/.env
     networks:
-      - catalog-net
-    command: >
-      sh -c "python -m app.db.wait_for_db &&
-         python -m app.db.seed_data &&
-         uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      - ticketing-network
+    command: ["sh", "start.sh"]
 
 
   # Prometheus for monitoring
@@ -319,8 +316,12 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/services-dashboard.json
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - prometheus
     networks:

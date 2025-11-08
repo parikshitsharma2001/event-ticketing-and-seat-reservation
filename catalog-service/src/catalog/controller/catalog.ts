@@ -3,6 +3,33 @@ import { CatalogService } from '../service/catalog';
 import { Response } from 'express';
 import { CreateVenueDto } from '../dto/venue.dto';
 import { CreateEventDto, ListEventsQueryDto } from '../dto/event.dto';
+import * as client from 'prom-client';
+
+// --- PROMETHEUS METRICS SETUP --- //
+const register = new client.Registry();
+
+// collect default Node.js metrics (CPU, memory, event loop, etc.)
+client.collectDefaultMetrics({ register });
+
+// define custom metrics for this service
+const eventsCreatedTotal = new client.Counter({
+  name: 'catalog_events_created_total',
+  help: 'Total number of events created',
+});
+
+const venuesCreatedTotal = new client.Counter({
+  name: 'catalog_venues_created_total',
+  help: 'Total number of venues created',
+});
+
+const eventsListedTotal = new client.Counter({
+  name: 'catalog_events_listed_total',
+  help: 'Total number of event listing requests',
+});
+
+register.registerMetric(eventsCreatedTotal);
+register.registerMetric(venuesCreatedTotal);
+register.registerMetric(eventsListedTotal);
 
 @Controller()
 export class CatalogController {
@@ -15,6 +42,13 @@ export class CatalogController {
       .json({ ok: true, service: 'catalog-service' });
   }
 
+  // ✅ PROMETHEUS METRICS ENDPOINT
+  @Get('/metrics')
+  async getMetrics(@Res() response: Response) {
+    response.setHeader('Content-Type', register.contentType);
+    response.send(await register.metrics());
+  }
+
   @Post('/v1/venues')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: false }))
   async createVenue(
@@ -22,9 +56,10 @@ export class CatalogController {
     @Res() response: Response
   ) {
     try {
-      const createdVenue = await this.catalogService.createVenue(
-        createVenueDto,
-      );
+      const createdVenue = await this.catalogService.createVenue(createVenueDto);
+      // increment Prometheus counter
+      venuesCreatedTotal.inc();
+
       return response.status(HttpStatus.CREATED).json(createdVenue);
     } catch (error) {
       console.error(error);
@@ -41,9 +76,10 @@ export class CatalogController {
     @Res() response: Response,
   ) {
     try {
-      const createdEvent = await this.catalogService.createEvent(
-        createEventDto,
-      );
+      const createdEvent = await this.catalogService.createEvent(createEventDto);
+      // increment Prometheus counter
+      eventsCreatedTotal.inc();
+
       return response.status(HttpStatus.CREATED).json(createdEvent);
     } catch (error) {
       console.error(error);
@@ -65,6 +101,10 @@ export class CatalogController {
         type: query.type,
         status: query.status,
       });
+
+      // count listing operations
+      eventsListedTotal.inc();
+
       return response.json(eventsList);
     } catch (error) {
       console.error(error);

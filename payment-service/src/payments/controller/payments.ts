@@ -4,6 +4,34 @@ import { RefundDto } from '../dto/refund.dto';
 import { Request, Response } from 'express';
 import { PaymentsService } from '../service/payments';
 import * as os from 'os';
+import * as client from 'prom-client';
+
+// --- PROMETHEUS SETUP --- //
+const register = new client.Registry();
+
+// Collect default process and system metrics
+client.collectDefaultMetrics({ register });
+
+// Custom counters
+const paymentsTotal = new client.Counter({
+  name: 'payments_total',
+  help: 'Total number of payment attempts',
+});
+
+const paymentsFailedTotal = new client.Counter({
+  name: 'payments_failed_total',
+  help: 'Total number of failed payments',
+});
+
+const refundsTotal = new client.Counter({
+  name: 'refunds_total',
+  help: 'Total number of refunds processed',
+});
+
+register.registerMetric(paymentsTotal);
+register.registerMetric(paymentsFailedTotal);
+register.registerMetric(refundsTotal);
+
 
 @Controller()
 export class PaymentsController {
@@ -16,20 +44,13 @@ export class PaymentsController {
     return { ok: true, service: 'payment-service' };
   }
 
+  // ✅ Proper Prometheus endpoint
   @Get('metrics')
-  getMetrics() {
-    const memory = process.memoryUsage();
-    const cpuLoad = os.loadavg()[0];
-    return {
-      service: 'payment-service',
-      uptime_seconds: process.uptime(),
-      memory_mb: (memory.rss / 1024 / 1024).toFixed(2),
-      heap_used_mb: (memory.heapUsed / 1024 / 1024).toFixed(2),
-      cpu_load_1m: cpuLoad.toFixed(2),
-      platform: os.platform(),
-      timestamp: new Date().toISOString(),
-    };
+  async getMetrics(@Res() res: Response) {
+    res.setHeader('Content-Type', register.contentType);
+    res.send(await register.metrics());
   }
+
 
   @Post('v1/charge')
   async charge(@Req() req: Request, @Body() body: CreateChargeAPIDto, @Res() res: Response) {
@@ -42,6 +63,8 @@ export class PaymentsController {
         amount_cents: body.amount_cents,
         currency: body.currency
       });
+      // Increment success counter
+      paymentsTotal.inc();
       return res.json({
         id: payment.id,
         merchant_order_id: payment.merchantOrderId,
@@ -59,6 +82,8 @@ export class PaymentsController {
   async refund(@Body() body: RefundDto, @Res() res: Response) {
     try {
       const refunded = await this.paymentsService.refund(body.payment_id);
+      // Increment refund counter
+      refundsTotal.inc();
       return res.json({ id: refunded.id, status: refunded.status });
     } catch (err: any) {
       throw new HttpException(err.message || 'internal', err.status || 500);

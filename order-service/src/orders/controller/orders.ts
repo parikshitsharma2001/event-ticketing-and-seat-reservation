@@ -11,9 +11,20 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import * as os from 'os';
+import * as client from 'prom-client';
 import { OrdersService } from '../service/orders';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { PaymentCallbackDto } from '../dto/payment-callback.dto';
+
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const orderCreatedCounter = new client.Counter({
+  name: 'orders_created_total',
+  help: 'Total number of orders created',
+});
+register.registerMetric(orderCreatedCounter);
+
 
 @Controller()
 export class OrdersController {
@@ -27,18 +38,9 @@ export class OrdersController {
   }
 
   @Get('metrics')
-  getMetrics() {
-    const memory = process.memoryUsage();
-    const cpuLoad = os.loadavg()[0];
-    return {
-      service: 'order-service',
-      uptime_seconds: process.uptime(),
-      memory_mb: (memory.rss / 1024 / 1024).toFixed(2),
-      heap_used_mb: (memory.heapUsed / 1024 / 1024).toFixed(2),
-      cpu_load_1m: cpuLoad.toFixed(2),
-      platform: os.platform(),
-      timestamp: new Date().toISOString(),
-    };
+  async getMetrics(@Res() res: Response) {
+    res.setHeader('Content-Type', register.contentType);
+    res.send(await register.metrics());
   }
 
   @Post('v1/orders')
@@ -51,6 +53,7 @@ export class OrdersController {
 
     try {
       const result = await this.ordersService.createOrderFlow(idempotencyKey!, body);
+      orderCreatedCounter.inc();
       return res.status(201).json(result);
     } catch (error: any) {
       this.logger.error(error);
