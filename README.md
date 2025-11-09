@@ -24,7 +24,7 @@
 
 ## 1. Introduction
 
-The Event Ticketing and Seat Reservation System is a production-grade microservices application designed to handle event management, user authentication, seat reservations, and payment processing at scale. Built with modern technologies and best practices, the system demonstrates expertise in distributed systems, containerization, and cloud-native development.
+The Event Ticketing and Seat Reservation System is a production-grade microservices application designed to handle event management, user authentication, seat reservations, order management, and payment processing at scale. Built with modern technologies and best practices, the system demonstrates expertise in distributed systems, containerization, and cloud-native development.
 
 ### Architecture Overview
 
@@ -34,14 +34,13 @@ The application consists of five independent microservices:
 - **Seating Service (Port 8082):** Manages seat inventory, temporary reservations with TTL, and seat allocation with pessimistic locking
 - **Payment Service (Port 4004):** Processes payments with idempotent operations, handles refunds, and integrates with order callbacks
 - **Catalog Service (Port 8000):** Manages venues and events with comprehensive search and filtering capabilities
-- **Order Service:** Orchestrates the complete booking workflow from reservation to ticket generation
+- **Order Service (Port 4003):** Orchestrates the complete booking workflow from reservation to ticket generation
 
 ### Technology Stack
 
 **Backend Technologies:**
 - **Java 11** with **Spring Boot 2.7.18** (User Service, Seating Service)
-- **TypeScript** with **NestJS** (Payment Service)
-- **Python 3.13** with **FastAPI** (Catalog Service)
+- **TypeScript** with **NestJS** (Payment Service, Order Service, Catalog Service)
 
 **Data Layer:**
 - **PostgreSQL** - Primary relational database for all services
@@ -94,7 +93,6 @@ The application consists of five independent microservices:
 - Java 11 or higher
 - Maven 3.6+
 - Node.js 21 or higher
-- Python 3.13 or higher
 - Git
 
 **Databases & Caching:**
@@ -119,9 +117,6 @@ mvn -version
 # Verify Node.js
 node -version
 
-# Verify Python
-python3 --version
-
 # Verify Docker
 docker --version
 
@@ -130,7 +125,6 @@ kubectl version --client
 ```
 
 ---
-
 ## 3. Core Components
 
 ### 3.1 User Service (Java/Spring Boot)
@@ -297,11 +291,11 @@ payment-service/
 
 ---
 
-### 3.4 Catalog Service (Python/FastAPI)
+### 3.4 Catalog Service (TypeScript/NestJS)
 
 **Port:** 8000  
 **Database:** catalogdb  
-**Technology:** Python 3.13, FastAPI
+**Technology:** TypeScript, NestJS, TypeORM, PostgreSQL
 
 **Key Features:**
 - Venue management (CRUD operations)
@@ -368,6 +362,84 @@ catalog-service/
 ---
 
 ### 3.5 Order Service
+---
+
+### 3.6 Order Service (TypeScript/NestJS)
+
+**Port:** 4003  
+**Database:** orderdb  
+**Technology:** Node.js 21, NestJS 10, TypeORM, PostgreSQL
+
+**Key Features:**
+- Idempotent order creation using `Idempotency-Key`
+- Integration with Catalog, Seating, Payment, and Notification services
+- Tax calculation and total order amount computation
+- Ticket generation and issuance after successful payment
+- PostgreSQL persistence with TypeORM
+- CQRS-based command-query separation
+- Health and metrics endpoints compatible with Prometheus
+- Structured logging via NestJS Logger
+- Docker and Kubernetes ready
+
+**Project Structure:**
+```
+order-service/
+├── src/
+│   ├── app.module.ts
+│   ├── main.ts
+│   ├── orders/
+│   │   ├── controller/
+│   │   │   └── orders.controller.ts
+│   │   ├── service/
+│   │   │   └── orders.service.ts
+│   │   ├── repository/
+│   │   │   ├── orders.command.ts
+│   │   │   └── orders.query.ts
+│   │   ├── entities/
+│   │   │   ├── order.entity.ts
+│   │   │   ├── order-item.entity.ts
+│   │   │   └── ticket.entity.ts
+│   │   ├── dto/
+│   │   │   └── create-order.dto.ts
+│   │   └── orders.module.ts
+│   ├── config/
+│   │   └── database.ts
+│   └── common/
+│       └── utils.ts
+├── Dockerfile
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+**Database Tables:**
+- `orders`
+  - id (UUID, Primary Key)
+  - idempotency_key (Unique)
+  - user_id
+  - event_id
+  - total_cents
+  - tax_cents
+  - status (PENDING, CONFIRMED, CANCELLED, FAILED, REFUNDED)
+  - created_at
+  - updated_at
+
+- `order_items`
+  - id (Primary Key)
+  - order_id (Foreign Key → orders.id)
+  - seat_id
+  - seat_code
+  - seat_price_cents
+
+- `tickets`
+  - id (UUID, Primary Key)
+  - order_id (Foreign Key → orders.id)
+  - seat_id
+  - ticket_code (Unique)
+  - issued_at
+
+---
+
 
 **Key Features:**
 - Order creation and lifecycle management
@@ -1401,13 +1473,21 @@ CMD ["node", "dist/main.js"]
 
 **Catalog Service Dockerfile:**
 ```dockerfile
-FROM python:3.13-slim
+FROM node:21-alpine AS builder
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+COPY package*.json ./
+RUN npm install
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+FROM node:21-alpine
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY package*.json ./
+RUN npm install --only=production
+EXPOSE 4004
+CMD ["node", "dist/main.js"]
 ```
 
 #### 7.2.2 Docker Compose Configuration
@@ -2349,7 +2429,7 @@ Technologies: TypeScript, NestJS, PostgreSQL, TypeORM
 ```
 Branch: main
 Path: /catalog-service
-Technologies: Python 3.13, FastAPI, PostgreSQL
+Technologies: TypeScript, NestJS, PostgreSQL, TypeORM
 ```
 
 ### 10.3 Documentation Files
@@ -2613,7 +2693,7 @@ kubectl top nodes
 The Event Ticketing and Seat Reservation System demonstrates a comprehensive implementation of microservices architecture with industry best practices. The system successfully addresses key challenges in distributed systems including:
 
 **Technical Achievements:**
-- Polyglot microservices with Java, TypeScript, and Python
+- Polyglot microservices with Java, and TypeScript
 - Database-per-service pattern with complete data isolation
 - Idempotent payment processing
 - Automatic seat reservation expiration
@@ -2649,7 +2729,6 @@ This system provides a solid foundation for a production-grade event ticketing p
 - Java: 11
 - Spring Boot: 2.7.18
 - Node.js: 21
-- Python: 3.13
 - PostgreSQL: 14
 - Docker: 20.10+
 - Kubernetes: 1.28+
