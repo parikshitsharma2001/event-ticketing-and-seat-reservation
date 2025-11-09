@@ -27,7 +27,11 @@ export class OrdersService {
     const { user_id, event_id, seats } = orderRequest as any;
 
     const existing = await this.queryRepo.findByIdempotency(idempotencyKey);
-    if (existing) return existing;
+    if (existing) {
+      const items = await this.queryRepo.findOrderItems(existing.id);
+      const tickets = await this.queryRepo.findTickets(existing.id);
+      return { order: existing, items, tickets };
+    }
 
     const toCents = (v: any) =>
       typeof v === 'number'
