@@ -7,8 +7,6 @@ Seating Service manages seat inventory, availability, reservations, and allocati
 - Java 11
 - Spring Boot 2.7.18
 - PostgreSQL
-- Redis (for distributed locking)
-- Redisson
 - Spring Data JPA
 - Optimistic & Pessimistic Locking
 - Scheduled Tasks
@@ -129,10 +127,6 @@ spring:
     url: jdbc:postgresql://localhost:5432/seatingdb
     username: postgres
     password: postgres
-  
-  redis:
-    host: localhost
-    port: 6379
 ```
 
 ## Running Locally
@@ -141,13 +135,11 @@ spring:
 - Java 11
 - Maven
 - PostgreSQL
-- Redis
 
 ### Steps
-1. Start PostgreSQL and Redis:
+1. Start PostgreSQL:
 ```bash
 createdb seatingdb
-redis-server
 ```
 
 2. Build the application:

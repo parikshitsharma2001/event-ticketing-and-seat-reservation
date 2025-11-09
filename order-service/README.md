@@ -248,7 +248,6 @@ The `/metrics` endpoint exposes lightweight system-level metrics compatible with
 
 ## Future Enhancements
 
-* Add seat availability caching (Redis)
 * Implement distributed transaction consistency (Saga pattern)
 * Add support for refunds & cancellations
 * Introduce retry logic for failed notifications

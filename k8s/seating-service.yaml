@@ -27,10 +27,6 @@ spec:
               value: "appuser"
             - name: SPRING_DATASOURCE_PASSWORD
               value: "changeme123"
-            - name: SPRING_REDIS_HOST
-              value: "redis"
-            - name: SPRING_REDIS_PORT
-              value: "6379"
           livenessProbe:
             httpGet:
               path: /actuator/health

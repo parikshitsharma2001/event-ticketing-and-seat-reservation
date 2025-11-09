@@ -70,7 +70,7 @@ docker images | grep service
 
 ---
 
-## 🗄️ Step 4: Deploy Databases and Redis
+## 🗄️ Step 4: Deploy Databases
 
 Apply your database manifests **in order**:
 
@@ -80,7 +80,6 @@ kubectl apply -f k8s/catalogdb.yaml -n event-app
 kubectl apply -f k8s/seatingdb.yaml -n event-app
 kubectl apply -f k8s/orderdb.yaml -n event-app
 kubectl apply -f k8s/paymentdb.yaml -n event-app
-kubectl apply -f k8s/redis.yaml -n event-app
 ```
 
 Wait for them to become ready:

@@ -21,7 +21,6 @@ This project implements a microservices-based Event Ticketing & Seat Reservation
 - **Spring Boot 2.7.18** - Application framework
 - **Spring Data JPA** - Data persistence
 - **PostgreSQL** - Relational database
-- **Redis** - Distributed caching and locking
 - **JWT** - Authentication tokens
 
 - **TypeScript** - Programming language
@@ -163,7 +162,6 @@ Each microservice has its own dedicated database:
 - Python 3+
 - Docker & Docker Compose
 - PostgreSQL (if running locally)
-- Redis (if running locally)
 
 ### Option 1: Docker Compose (Recommended)
 
@@ -193,10 +191,6 @@ docker-compose down
 createdb userdb
 createdb seatingdb
 createdb paymentdb
-
-# Redis
-redis-server
-```
 
 2. Build and run User Service:
 ```bash
@@ -439,13 +433,7 @@ lsof -ti:8081 | xargs kill -9
 pg_isalive
 ```
 
-3. **Redis connection failed**:
-```bash
-# Check Redis is running
-redis-cli ping
-```
-
-4. **Docker build fails**:
+3. **Docker build fails**:
 ```bash
 # Clean Docker cache
 docker system prune -a
