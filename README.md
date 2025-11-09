@@ -361,10 +361,7 @@ catalog-service/
 
 ---
 
-### 3.5 Order Service
----
-
-### 3.6 Order Service (TypeScript/NestJS)
+### 3.5 Order Service (TypeScript/NestJS)
 
 **Port:** 4003  
 **Database:** orderdb  
@@ -465,35 +462,36 @@ order-service/
 ### 4.1 High-Level Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                              │
-│  (Web Browser / Mobile App / Postman / cURL)                     │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      API Gateway (Future)                         │
-│              Load Balancing & Routing                             │
-└───────────┬─────────────┬─────────────┬─────────────┬───────────┘
-            │             │             │             │
-            ▼             ▼             ▼             ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │   User   │  │ Seating  │  │ Payment  │  │ Catalog  │
-    │ Service  │  │ Service  │  │ Service  │  │ Service  │
-    │          │  │          │  │          │  │          │
-    │ :8081    │  │ :8082    │  │ :4004    │  │ :8000    │
-    │ Java     │  │ Java     │  │ NestJS   │  │ FastAPI  │
-    └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
-         │             │             │             │
-         ▼             ▼             ▼             ▼
-    ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐
-    │ userdb │   │seatingdb│  │payments│   │catalog │
-    │        │   │        │   │  db    │   │  db    │
-    └────────┘   └────────┘   └────────┘   └────────┘
-         │             │             │             │
-         └─────────────┴─────────────┴─────────────┘
-                       │
-                  PostgreSQL
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              Client Layer                                 │
+│           (Web Browser / Mobile App / Postman / cURL)                     │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                │
+                                ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         API Gateway (Future)                              │
+│                   Load Balancing & Routing                                │
+└───────────┬─────────────┬─────────────┬─────────────┬─────────────┬──────┘
+            │             │             │             │             │
+            ▼             ▼             ▼             ▼             ▼
+    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │   User   │  │ Seating  │  │ Payment  │  │ Catalog  │  │  Order   │
+    │ Service  │  │ Service  │  │ Service  │  │ Service  │  │ Service  │
+    │          │  │          │  │          │  │          │  │          │
+    │ :8081    │  │ :8082    │  │ :4004    │  │ :8000    │  │ :4003    │
+    │ Java     │  │ Java     │  │ NestJS   │  │ FastAPI  │  │ NestJS   │
+    └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+         │             │             │             │             │
+         ▼             ▼             ▼             ▼             ▼
+    ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐
+    │ userdb │   │seatingdb│  │payments│   │catalog │   │ orderdb│
+    │        │   │        │   │  db    │   │  db    │   │        │
+    └────────┘   └────────┘   └────────┘   └────────┘   └────────┘
+         │             │             │             │             │
+         └─────────────┴─────────────┴─────────────┴─────────────┘
+                               │
+                         PostgreSQL
+
 ```
 
 ### 4.2 Inter-Service Communication Flow
@@ -501,46 +499,61 @@ order-service/
 **Ticket Booking Workflow:**
 
 ```
-┌────────┐         ┌────────┐         ┌──────────┐         ┌─────────┐
-│  User  │         │  User  │         │ Seating  │         │ Payment │
-│ Client │         │Service │         │ Service  │         │ Service │
-└───┬────┘         └───┬────┘         └────┬─────┘         └────┬────┘
-    │                  │                   │                    │
-    │ 1. Login         │                   │                    │
-    ├─────────────────>│                   │                    │
-    │                  │                   │                    │
-    │ 2. JWT Token     │                   │                    │
-    │<─────────────────┤                   │                    │
-    │                  │                   │                    │
-    │ 3. Check Availability                │                    │
-    ├──────────────────┴──────────────────>│                    │
-    │                                      │                    │
-    │ 4. Available Seats                   │                    │
-    │<─────────────────────────────────────┤                    │
-    │                                      │                    │
-    │ 5. Reserve Seats (15 min hold)       │                    │
-    ├─────────────────────────────────────>│                    │
-    │                                      │                    │
-    │                     6. Lock Seats    │                    │
-    │                     (Pessimistic)    │                    │
-    │                                      │                    │
-    │ 7. Reservation Confirmed             │                    │
-    │<─────────────────────────────────────┤                    │
-    │                                      │                    │
-    │ 8. Process Payment (with Idempotency Key)                 │
-    ├───────────────────────────────────────┴───────────────────>│
-    │                                                            │
-    │                                   9. Payment Success       │
-    │<───────────────────────────────────────────────────────────┤
-    │                                                            │
-    │ 10. Allocate Seats                   │                    │
-    ├─────────────────────────────────────>│                    │
-    │                                      │                    │
-    │ 11. Seats Allocated                  │                    │
-    │<─────────────────────────────────────┤                    │
-    │                                      │                    │
-    │ 12. Generate Ticket                  │                    │
-    │                                      │                    │
+┌────────┐         ┌────────┐         ┌──────────┐         ┌──────────┐         ┌─────────┐
+│  User  │         │  User  │         │  Order   │         │ Seating  │         │ Payment │
+│ Client │         │Service │         │ Service  │         │ Service  │         │ Service │
+└───┬────┘         └───┬────┘         └────┬─────┘         └────┬─────┘         └────┬────┘
+    │                  │                   │                   │                    │
+    │ 1. Login         │                   │                   │                    │
+    ├─────────────────>│                   │                   │                    │
+    │                  │                   │                   │                    │
+    │ 2. JWT Token     │                   │                   │                    │
+    │<─────────────────┤                   │                   │                    │
+    │                  │                   │                   │                    │
+    │ 3. Browse Events (via Catalog)       │                   │                    │
+    ├──────────────────┴──────────────────────────────────────────────────────────────>│
+    │<────────────────────────────────────────────────────────────────────────────────┤
+    │                  │                   │                   │                    │
+    │ 4. Check Seat Availability            │                   │                    │
+    ├──────────────────────────────────────>│                   │                    │
+    │                                       │                   │                    │
+    │ 5. Available Seats                    │                   │                    │
+    │<──────────────────────────────────────┤                   │                    │
+    │                                       │                   │                    │
+    │ 6. Reserve Seats (15-minute hold)     │                   │                    │
+    ├──────────────────────────────────────>│                   │                    │
+    │                                       │                   │                    │
+    │ 7. Reservation Confirmed              │                   │                    │
+    │<──────────────────────────────────────┤                   │                    │
+    │                                       │                   │                    │
+    │ 8. Create Order                       │                   │                    │
+    ├──────────────────────────────────────>│                   │                    │
+    │                                       │ 8a. Validate Reservation with Seating   │
+    │                                       ├───────────────────────────────────────>│
+    │                                       │ 8b. Confirm Event & Pricing (Catalog)   │
+    │                                       ├────────────────────────────────────────>│
+    │                                       │                   │                    │
+    │ 9. Order Created (status: PENDING)    │                   │                    │
+    │<──────────────────────────────────────┤                   │                    │
+    │                                       │                   │                    │
+    │ 10. Process Payment (Idempotent)      │                   │                    │
+    ├────────────────────────────────────────────────────────────────────────────────>│
+    │                                       │                   │                    │
+    │                                       │       11. Payment Callback              │
+    │                                       │<────────────────────────────────────────┤
+    │                                       │                   │                    │
+    │ 12. Update Order (status: CONFIRMED)  │                   │                    │
+    │                                       │                   │                    │
+    │ 13. Allocate Seats                    │                   │                    │
+    │                                       ├───────────────────────────────────────>│
+    │                                       │                   │                    │
+    │ 14. Seats Allocated                   │<───────────────────────────────────────┤
+    │                                       │                   │                    │
+    │ 15. Generate Tickets                  │                   │                    │
+    │                                       │                   │                    │
+    │ 16. Send Confirmation to User         │                   │                    │
+    │<──────────────────────────────────────┤                   │                    │
+    │                                       │                   │                    │
 ```
 
 **Payment Failure & Auto-Expiry Flow:**
@@ -618,6 +631,16 @@ Each microservice maintains complete autonomy over its data:
 │  - Events        │    │  Tables:         │
 │  - Search        │    │  - venues        │
 │                  │    │  - events        │
+└──────────────────┘    └──────────────────┘
+
+┌──────────────────┐    ┌──────────────────┐
+│  Order Service   │    │   Order Database │
+│                  ├───>│    (orderdb)     │
+│  - Order Mgmt    │    │                  │
+│  - Lifecycle     │    │  Tables:         │
+│  - Ticket Issuance│   │  - orders        │
+│  - Payment Coord │    │  - order_items   │
+│  - Seat Coord    │    │  - tickets       │
 └──────────────────┘    └──────────────────┘
 ```
 ---
@@ -773,6 +796,77 @@ INSERT INTO events (venue_id, name, event_type, start_date, end_date, total_seat
 (2, 'Champions League Final', 'SPORTS', '2025-06-15 20:00:00', '2025-06-15 22:30:00', 90000, 85000, 120.00);
 ```
 
+### 5.5 Order Service Database (orderdb)
+
+```sql
+CREATE DATABASE IF NOT EXISTS orderdb;
+USE orderdb;
+
+-- Orders table
+CREATE TABLE IF NOT EXISTS orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    idempotency_key TEXT UNIQUE,                 -- to ensure idempotent order creation
+    user_id BIGINT,                              -- references user-service.user_id (logical)
+    event_id BIGINT,                             -- references catalog.events.event_id (logical)
+    total_cents INTEGER NOT NULL,
+    tax_cents INTEGER DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',  -- PENDING, RESERVED, PAYMENT_PROCESSING, CONFIRMED, FAILED, CANCELLED, REFUNDED
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_user_id (user_id),
+    INDEX idx_event_id (event_id),
+    INDEX idx_status (status),
+    INDEX idx_idempotency (idempotency_key)
+);
+
+-- Order items (individual seat lines)
+CREATE TABLE IF NOT EXISTS order_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id UUID NOT NULL,
+    seat_id BIGINT,             -- seat identifier from seating service (logical link)
+    seat_code TEXT,             -- human-friendly seat code (e.g. "A-12")
+    seat_price_cents INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    
+    INDEX idx_order_id (order_id),
+    INDEX idx_seat_id (seat_id)
+);
+
+-- Tickets issued for confirmed orders
+CREATE TABLE IF NOT EXISTS tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID NOT NULL,
+    seat_id BIGINT,             -- seat identifier
+    ticket_code TEXT UNIQUE,    -- unique ticket identifier / QR payload
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    
+    INDEX idx_ticket_order (order_id),
+    INDEX idx_ticket_seat (seat_id)
+);
+
+-- Example Data (demo)
+INSERT INTO orders (idempotency_key, user_id, event_id, total_cents, tax_cents, status) VALUES
+('idem-abc-001', 101, 1001, 45000, 4500, 'PENDING'),
+('idem-xyz-002', 102, 1002, 90000, 9000, 'CONFIRMED');
+
+-- Link seats as order items (example)
+INSERT INTO order_items (order_id, seat_id, seat_code, seat_price_cents) VALUES
+('00000000-0000-0000-0000-000000000001', 201, 'VIP-A-12', 15000),
+('00000000-0000-0000-0000-000000000001', 202, 'VIP-A-13', 15000),
+('00000000-0000-0000-0000-000000000001', 203, 'VIP-A-14', 15000);
+
+-- Example ticket entries (issued after payment/confirmation)
+INSERT INTO tickets (id, order_id, seat_id, ticket_code) VALUES
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000001', 201, 'TCK-20251109-AAA'),
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000001', 202, 'TCK-20251109-AAB'),
+(gen_random_uuid(), '00000000-0000-0000-0000-000000000001', 203, 'TCK-20251109-AAC');
+
+```
+
 ### 5.5 Entity Relationship Diagram
 
 ```
@@ -822,6 +916,51 @@ INSERT INTO events (venue_id, name, event_type, start_date, end_date, total_seat
 │ status             │
 │ idempotency_key    │
 └────────────────────┘
+
+           │
+           │ merchant_order_id (FK)
+           ▼
+
+┌────────────────────┐
+│       orders       │
+├────────────────────┤
+│ id (PK)            │
+│ idempotency_key    │
+│ user_id (FK)       │
+│ event_id (FK)      │
+│ total_cents        │
+│ tax_cents          │
+│ status             │
+│ created_at         │
+│ updated_at         │
+└──────┬─────────────┘
+       │
+       │ order_id (FK)
+       ▼
+
+┌────────────────────┐
+│    order_items     │
+├────────────────────┤
+│ id (PK)            │
+│ order_id (FK)      │
+│ seat_id (FK)       │
+│ seat_code          │
+│ seat_price_cents   │
+└──────┬─────────────┘
+       │
+       │ order_id (FK)
+       ▼
+
+┌────────────────────┐
+│      tickets       │
+├────────────────────┤
+│ id (PK)            │
+│ order_id (FK)      │
+│ seat_id (FK)       │
+│ ticket_code (UQ)   │
+│ issued_at          │
+└────────────────────┘
+
 ```
 
 ---
@@ -1243,6 +1382,140 @@ Content-Type: application/json
   "base_price": 60.00
 }
 ```
+
+#### Order Service (Port 4003)
+
+**Order Management Endpoints:**
+
+```
+POST   /v1/orders                 - Create a new order (idempotent; requires Idempotency-Key header)
+GET    /v1/orders/{orderId}       - Get order details by ID
+GET    /v1/orders/{orderId}/tickets - Get tickets for an order
+POST   /v1/payments/callback      - Handle payment service callback (payment notifications)
+GET    /health                    - Service health check
+GET    /metrics                   - System metrics (Prometheus-compatible)
+```
+
+**Health & Metrics:**
+
+```
+GET    /health                    - Service health status (HTTP 200 OK)
+GET    /metrics                   - Exposes system/process metrics compatible with Prometheus/Grafana
+```
+
+**Example Request - Create Order (idempotent):**
+
+```bash
+curl -X POST http://localhost:4003/v1/orders \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: abc123" \
+  -d '{
+    "user_id": 101,
+    "event_id": 1001,
+    "reservation_id": "res_abc123xyz",
+    "seats": [201,202,203]
+  }'
+```
+
+**Example Response - Create Order (201 / existing if same key):**
+
+```json
+{
+  "orderId": "7f7ddc5b-2099-44a1-9f52-3089eb15c1d9",
+  "status": "PENDING",
+  "userId": 101,
+  "eventId": 1001,
+  "totalCents": 45000,
+  "taxCents": 4500,
+  "createdAt": "2025-11-09T10:50:00Z"
+}
+```
+
+**Notes:**
+
+* If the same `Idempotency-Key` is presented again, the service returns the existing order instead of creating a duplicate.
+* On order creation the status is typically `PENDING` (or `RESERVED` depending on implementation) until payment confirmation.
+
+**Example Request - Get Order by ID:**
+
+```bash
+curl -X GET http://localhost:4003/v1/orders/7f7ddc5b-2099-44a1-9f52-3089eb15c1d9 \
+  -H "Authorization: Bearer {jwt_token}"
+```
+
+**Example Response - Get Order:**
+
+```json
+{
+  "orderId": "7f7ddc5b-2099-44a1-9f52-3089eb15c1d9",
+  "status": "CONFIRMED",
+  "userId": 101,
+  "eventId": 1001,
+  "items": [
+    {"seatId": 201, "seatCode": "VIP-A-12", "priceCents": 15000},
+    {"seatId": 202, "seatCode": "VIP-A-13", "priceCents": 15000},
+    {"seatId": 203, "seatCode": "VIP-A-14", "priceCents": 15000}
+  ],
+  "totalCents": 45000,
+  "taxCents": 4500,
+  "paymentId": "pay_xyz789abc",
+  "createdAt": "2025-11-09T10:50:00Z",
+  "updatedAt": "2025-11-09T11:00:05Z"
+}
+```
+
+**Example Request - Payment Callback (invoked by Payment Service):**
+
+```bash
+curl -X POST http://localhost:4003/v1/payments/callback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "order_id": "7f7ddc5b-2099-44a1-9f52-3089eb15c1d9",
+    "payment_id": "7d0f1735-b4ab-4f43-8d27-6322a91db938",
+    "status": "SUCCESS",
+    "transaction_id": "txn_upi_123456789"
+  }'
+```
+
+**Expected Callback Processing (behaviour):**
+
+* On `SUCCESS`:
+
+  * Order Service updates order status to `CONFIRMED`.
+  * Calls Seating Service to `allocate` seats (reservation → allocated).
+  * Generates `tickets` entries and unique `ticket_code`s.
+  * Calls Notification Service (email/SMS) to send tickets/confirmation.
+* On `FAILED`:
+
+  * Updates order status to `FAILED`.
+  * Leaves reservation until TTL or triggers seat release workflow.
+  * Optionally notifies user of failure and next steps.
+
+**Example Request - Get Tickets for an Order:**
+
+```bash
+curl -X GET http://localhost:4003/v1/orders/7f7ddc5b-2099-44a1-9f52-3089eb15c1d9/tickets \
+  -H "Authorization: Bearer {jwt_token}"
+```
+
+**Example Response - Tickets:**
+
+```json
+{
+  "orderId": "7f7ddc5b-2099-44a1-9f52-3089eb15c1d9",
+  "tickets": [
+    {"ticketId": "e3cbf6d8-1a2b-4c3d-9e7f-000000000001", "seatId": 201, "ticketCode": "TCK-20251109-AAA", "issuedAt": "2025-11-09T11:00:10Z"},
+    {"ticketId": "e3cbf6d8-1a2b-4c3d-9e7f-000000000002", "seatId": 202, "ticketCode": "TCK-20251109-AAB", "issuedAt": "2025-11-09T11:00:10Z"}
+  ]
+}
+```
+
+**Security & Validation:**
+
+* Payloads are validated with DTOs / `class-validator`.
+* `Idempotency-Key` enforced for `POST /v1/orders`.
+* Only authorized users (or the owning user/admin) can GET order/ticket endpoints (JWT-based auth).
+* Inter-service calls use internal endpoints (configured via env vars like `SEATING_URL`, `PAYMENT_URL`, `CATALOG_URL`).
 
 ---
 
